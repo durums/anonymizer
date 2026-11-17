@@ -1,0 +1,7 @@
+# Blacklist - Begriffe die IMMER anonymisiert werden
+# Ein Begriff pro Zeile. Leerzeilen und Zeilen mit # werden ignoriert.
+# Beispiele:
+# Mustermann GmbH
+# Projekt Sonnenschein
+# Vertrag 2024-ABC
+

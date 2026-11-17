@@ -1,0 +1,19 @@
+# Secrets
+*.key
+*.pem
+.env
+credentials.txt
+*_creds*
+*hash*
+*password*
+
+# Loot & Scans
+loot/
+*.pcap
+nmap_*.xml
+
+# System
+.DS_Store
+__pycache__/
+*.pyc
+node_modules/

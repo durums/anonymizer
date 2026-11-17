@@ -1,0 +1,20 @@
+From: Max Mustermann <max.mustermann@acme-test.de>
+To: Erika Beispiel <e.beispiel@kunde-test.de>
+Cc: Peter Schmidt <p.schmidt@kunde-test.de>
+Subject: Angebot Projekt Phoenix fuer Kunden-Nr. 884512
+Date: Mon, 16 Nov 2026 09:00:00 +0100
+Received: from mail.intern.example (10.0.0.5) by mx.example
+Message-ID: <abc123@acme-test.de>
+Content-Type: text/plain; charset="utf-8"
+
+Hallo Frau Beispiel,
+
+vielen Dank fuer das Gespraech. Wie besprochen schicke ich das Angebot an
+Ihre Adresse. Die Rechnung soll auf IBAN DE89 3704 0044 0532 0130 00 gehen.
+Bei Rueckfragen erreichen Sie mich unter 0171 2345678 oder in Berlin.
+Steuernummer der Firma: 12 345 678 901. USt-IdNr. DE123456789.
+HRB 98765 Amtsgericht Berlin.
+
+Viele Gruesse
+Max Mustermann
+Vertrieb ACME Test GmbH
