@@ -60,6 +60,11 @@ if errorlevel 1 (
     exit /b 1
 )
 
+:: Version aus app.py auslesen und neben die .exe schreiben
+for /f "tokens=2 delims='" %%v in ('findstr /R "^VERSION" app.py') do (
+    echo %%v> Anonymisierer_version.txt
+)
+
 echo.
 echo ============================================
 echo   Fertig!

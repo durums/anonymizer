@@ -12,6 +12,16 @@ loot/
 *.pcap
 nmap_*.xml
 
+# Build-Artefakte
+*.exe
+*.exe.update
+Anonymisierer_version.txt
+build_env/
+venv/
+build/
+dist/
+*.spec
+
 # System
 .DS_Store
 __pycache__/

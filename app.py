@@ -15,6 +15,8 @@ from flask import Flask, request, send_file, jsonify
 
 from anony import anonymisiere_dateien
 
+VERSION = "1.0.0"
+
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
 
@@ -544,7 +546,7 @@ footer .privacy { margin-bottom: 0.2rem; }
 
 <footer>
   <div class="privacy">Verarbeitung ausschließlich im Arbeitsspeicher &mdash; keine Daten werden gespeichert.</div>
-  <div>Dokument-Anonymisierer v1.0</div>
+  <div>Dokument-Anonymisierer v""" + VERSION + r"""</div>
 </footer>
 
 <div class="toast-container" id="toasts"></div>
