@@ -4,7 +4,10 @@
 import io
 import json
 import os
+import signal
 import sys
+import threading
+import time
 import zipfile
 from pathlib import Path
 
@@ -21,6 +24,9 @@ _EXE_DIR = Path(sys.executable).parent if getattr(sys, "frozen", False) else Pat
 BLACKLIST_DATEI = _EXE_DIR / "blacklist.txt"
 _BUNDLE_BLACKLIST = _BUNDLE_DIR / "blacklist.txt"
 ERLAUBTE_ENDUNGEN = {".eml", ".mbox", ".txt", ".csv", ".xlsx"}
+
+_letzter_heartbeat = time.time()
+_heartbeat_aktiv = False
 
 KATEGORIEN = [
     {"id": "PERSON", "label": "Namen"},
@@ -69,6 +75,13 @@ def zu_gross(e):
 @app.route("/")
 def startseite():
     return SEITE_HTML
+
+
+@app.route("/heartbeat", methods=["POST"])
+def heartbeat():
+    global _letzter_heartbeat
+    _letzter_heartbeat = time.time()
+    return "", 204
 
 
 @app.route("/api/blacklist")
@@ -555,6 +568,9 @@ const KATEGORIEN = [
   'IP-Adressen','Firmennamen','Positionen','Handelsregister','Steuer-IDs','USt-IDs','Kunden-Nr.','Domains'
 ];
 
+// --- Heartbeat: Server beendet sich wenn Browser-Tab geschlossen ---
+setInterval(() => { fetch('/heartbeat', {method:'POST'}).catch(() => {}); }, 15000);
+
 // --- Init ---
 (function init() {
   // Category badges
@@ -779,10 +795,22 @@ startBtn.addEventListener('click', async () => {
 """
 
 
+def _heartbeat_watchdog(timeout=30):
+    global _letzter_heartbeat
+    while True:
+        time.sleep(3)
+        if time.time() - _letzter_heartbeat > timeout:
+            os._exit(0)
+
+
 if __name__ == "__main__":
-    import webbrowser, threading
+    import webbrowser
     port = int(os.environ.get("PORT", 5000))
     print(f"Anonymisierer läuft auf http://localhost:{port}")
     print("Keine Daten werden gespeichert — alles nur im RAM.")
+    _letzter_heartbeat = time.time()
+    _heartbeat_aktiv = True
+    t = threading.Thread(target=_heartbeat_watchdog, daemon=True)
+    t.start()
     threading.Timer(1.5, webbrowser.open, args=[f"http://localhost:{port}"]).start()
     app.run(host="127.0.0.1", port=port, debug=False)

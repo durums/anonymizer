@@ -132,6 +132,10 @@ ORT_AUS_PLZ_RE = re.compile(
     r"([A-ZÄÖÜ][a-zäöüß]+(?:[- ](?:[A-ZÄÖÜ][a-zäöüß]+|am|an|im|in|ob|bei|vor|a\.|i\.)){0,3})"
 )
 
+AT_FIRMA_RE = re.compile(
+    r"@-([A-ZÄÖÜ][\w.\-]*(?:[ \t]+(?:[A-ZÄÖÜ&][\w.\-]*|und|u\.))*)"
+)
+
 PRIO_BEGRIFF = 200
 PRIO_AUTO = 55
 
@@ -321,6 +325,7 @@ class Anonymisierer:
     def __init__(self, ausnahmen=()):
         self.ausnahmen = {a.casefold() for a in ausnahmen}
         self._index = {False: {}, True: {}}   # ci -> {erstes Token: {Tokenfolge: (Label, Gruppe, Prio)}}
+        self._begriffe_sub = []               # [(compiled_re, label, gruppe, prio)] Substring-Suche
         self.teil_gruppe = {}
         self.platzhalter = {}
         self.zaehler = Counter()
@@ -348,6 +353,9 @@ class Anonymisierer:
             teile = [_norm(w) for w in WORT_RE.findall(text)]
             gruppe = next((self.teil_gruppe[t] for t in teile if t in self.teil_gruppe), gruppe)
         self._term(text, label, gruppe, ci=True, prio=PRIO_BEGRIFF)
+        self._begriffe_sub.append(
+            (re.compile(re.escape(text), re.IGNORECASE), label, gruppe, PRIO_BEGRIFF)
+        )
 
     def name(self, roh, streng=True):
         """Registriert einen Personen- oder Firmennamen samt Namensteilen."""
@@ -483,6 +491,15 @@ class Anonymisierer:
             ort = m.group(1).strip()
             if len(ort) >= 3:
                 self.begriff_auto(ort, "ORT")
+        for m in AT_FIRMA_RE.finditer(text):
+            voll = m.group(0)
+            name = m.group(1).strip()
+            if len(name) >= 2 and name.casefold() not in self.ausnahmen:
+                gruppe = ("FIRMA", voll.casefold())
+                self._term(voll, "FIRMA", gruppe, ci=True, prio=PRIO_AUTO)
+                self._begriffe_sub.append(
+                    (re.compile(re.escape(voll), re.IGNORECASE), "FIRMA", gruppe, PRIO_AUTO)
+                )
 
     def ner_sammeln(self, nlp, texte, labels):
         typen = {"ORG": "FIRMA", "LOC": "ORT", "GPE": "ORT"}
@@ -512,6 +529,9 @@ class Anonymisierer:
                     ende = i + len(key)
                     if ende <= len(toks) and tuple(folge[i:ende]) == key:
                         spans.append((prio, toks[i].start(), toks[ende - 1].end(), label, gruppe))
+        for regex, label, gruppe, prio in self._begriffe_sub:
+            for m in regex.finditer(text):
+                spans.append((prio, m.start(), m.end(), label, gruppe))
         return spans
 
     def _platzhalter(self, label, gruppe):

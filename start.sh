@@ -24,10 +24,11 @@ pip install -q -r requirements.txt
 
 echo
 echo "Starte Server auf http://localhost:5000"
-echo "Zum Beenden: Strg+C"
+echo "Server beendet sich automatisch wenn der Browser-Tab geschlossen wird."
 echo
 
-# Browser oeffnen falls moeglich
-( sleep 2 && xdg-open http://localhost:5000 2>/dev/null || open http://localhost:5000 2>/dev/null ) &
+python3 app.py &>/dev/null &
+disown
 
-python3 app.py
+sleep 2
+xdg-open http://localhost:5000 2>/dev/null || open http://localhost:5000 2>/dev/null || true

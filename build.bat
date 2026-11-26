@@ -35,6 +35,7 @@ echo.
 pyinstaller ^
     --noconfirm ^
     --onefile ^
+    --noconsole ^
     --distpath . ^
     --name Anonymisierer ^
     --add-data "blacklist.txt;." ^
