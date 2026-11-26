@@ -5,7 +5,7 @@ cd /d "%~dp0"
 
 set REPO=durums/anonymizer
 set EXE=Anonymisierer.exe
-set VER_DATEI=Anonymisierer_version.txt
+set TEMP_DIR=_update_temp
 
 echo ============================================
 echo   Anonymisierer - Update
@@ -23,59 +23,114 @@ if not errorlevel 1 (
     exit /b 1
 )
 
-:: Blacklist sichern falls vorhanden (wird NIE ueberschrieben)
-if exist blacklist.txt (
-    echo Blacklist gefunden - wird beibehalten.
+:: Python pruefen
+python --version >nul 2>&1
+if errorlevel 1 (
+    echo [FEHLER] Python wird zum Bauen benoetigt.
+    echo Bitte Python 3.8+ installieren: https://www.python.org/downloads/
+    echo Wichtig: "Add Python to PATH" aktivieren!
+    pause
+    exit /b 1
 )
 
-:: GitHub-Update via PowerShell
-if exist "%EXE%" (
-    echo Pruefe auf neue Version ...
-) else (
-    echo Erstinstallation - lade Anonymisierer herunter ...
-)
+:: Aufraeumen falls letztes Update abgebrochen wurde
+if exist "%TEMP_DIR%" rmdir /S /Q "%TEMP_DIR%"
+
+echo Lade neuesten Quellcode von GitHub ...
 echo.
 
+:: Quellcode als ZIP herunterladen und entpacken
 powershell -ExecutionPolicy Bypass -NoProfile -Command ^
  "$ErrorActionPreference = 'Stop';" ^
- "$verDatei = '%~dp0%VER_DATEI%';" ^
- "$exe = '%~dp0%EXE%';" ^
  "try {" ^
  "  [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;" ^
- "  $rel = Invoke-RestMethod 'https://api.github.com/repos/%REPO%/releases/latest';" ^
- "  $tag = $rel.tag_name -replace '^v','';" ^
- "  $aktuell = if (Test-Path $verDatei) { (Get-Content $verDatei -Raw).Trim() } else { '?' };" ^
- "  Write-Host ('  Installiert:  ' + $aktuell);" ^
- "  Write-Host ('  Verfuegbar:   ' + $tag);" ^
- "  Write-Host '';" ^
- "  if ($aktuell -eq $tag) {" ^
- "    Write-Host 'Bereits auf dem neuesten Stand!' -ForegroundColor Green;" ^
- "    exit 0" ^
- "  }" ^
- "  $asset = $rel.assets | Where-Object { $_.name -like '*.exe' } | Select-Object -First 1;" ^
- "  if (-not $asset) {" ^
- "    Write-Host '[FEHLER] Kein .exe im GitHub Release gefunden.' -ForegroundColor Red;" ^
- "    Write-Host 'Bitte beim Ersteller nachfragen.';" ^
- "    exit 1" ^
- "  }" ^
- "  Write-Host ('Lade ' + $asset.name + ' herunter (' + [math]::Round($asset.size/1MB,1) + ' MB) ...');" ^
- "  $tmp = $exe + '.update';" ^
- "  Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $tmp -UseBasicParsing;" ^
- "  if (Test-Path $exe) { Remove-Item $exe -Force }" ^
- "  Rename-Item $tmp '%EXE%' -Force;" ^
- "  Set-Content $verDatei $tag -NoNewline;" ^
- "  Write-Host '';" ^
- "  Write-Host ('Update auf ' + $tag + ' abgeschlossen!') -ForegroundColor Green;" ^
+ "  Invoke-WebRequest -Uri 'https://github.com/%REPO%/archive/refs/heads/main.zip' -OutFile '_update.zip' -UseBasicParsing;" ^
+ "  Expand-Archive '_update.zip' -DestinationPath '%TEMP_DIR%' -Force;" ^
+ "  Remove-Item '_update.zip' -Force;" ^
  "} catch {" ^
- "  Write-Host '';" ^
- "  Write-Host ('[FEHLER] ' + $_.Exception.Message) -ForegroundColor Red;" ^
- "  Write-Host '';" ^
- "  Write-Host 'Moegl. Ursachen:';" ^
- "  Write-Host '  - Keine Internetverbindung';" ^
- "  Write-Host '  - GitHub nicht erreichbar (Proxy/Firewall)';" ^
- "  Write-Host '  - Noch kein Release veroeffentlicht';" ^
+ "  Write-Host ('[FEHLER] Download fehlgeschlagen: ' + $_.Exception.Message) -ForegroundColor Red;" ^
  "  exit 1" ^
  "}"
 
+if not exist "%TEMP_DIR%\anonymizer-main\app.py" (
+    echo [FEHLER] Download fehlgeschlagen oder Repo-Struktur unerwartet.
+    if exist "%TEMP_DIR%" rmdir /S /Q "%TEMP_DIR%"
+    pause
+    exit /b 1
+)
+
+:: In den entpackten Ordner wechseln und .exe bauen
+echo Baue neue Version (das kann 1-2 Minuten dauern) ...
+echo.
+
+pushd "%TEMP_DIR%\anonymizer-main"
+
+if not exist "build_env\Scripts\activate.bat" (
+    python -m venv build_env
+)
+call build_env\Scripts\activate.bat
+
+pip install -q -r requirements.txt pyinstaller
+if errorlevel 1 (
+    echo [FEHLER] Abhaengigkeiten konnten nicht installiert werden.
+    popd
+    rmdir /S /Q "%~dp0%TEMP_DIR%"
+    pause
+    exit /b 1
+)
+
+pyinstaller ^
+    --noconfirm ^
+    --onefile ^
+    --noconsole ^
+    --name Anonymisierer ^
+    --add-data "blacklist.txt;." ^
+    --hidden-import openpyxl ^
+    --hidden-import email ^
+    --hidden-import email.mime ^
+    --hidden-import email.mime.text ^
+    --hidden-import email.mime.multipart ^
+    --hidden-import email.header ^
+    --hidden-import email.utils ^
+    --hidden-import csv ^
+    --hidden-import html ^
+    --hidden-import unicodedata ^
+    --hidden-import codecs ^
+    --hidden-import mailbox ^
+    app.py
+
+if errorlevel 1 (
+    echo.
+    echo [FEHLER] Build fehlgeschlagen.
+    popd
+    rmdir /S /Q "%~dp0%TEMP_DIR%"
+    pause
+    exit /b 1
+)
+
+:: Neue .exe zurueckkopieren
+popd
+copy /Y "%TEMP_DIR%\anonymizer-main\dist\%EXE%" "%EXE%" >nul
+
+:: Version speichern
+for /f "tokens=2 delims='" %%v in ('findstr /R "^VERSION" "%TEMP_DIR%\anonymizer-main\app.py"') do (
+    echo %%v> Anonymisierer_version.txt
+)
+
+:: Aufraeumen
+rmdir /S /Q "%TEMP_DIR%"
+
+echo.
+echo ============================================
+echo   Update abgeschlossen!
+echo ============================================
+echo.
+if exist Anonymisierer_version.txt (
+    set /p VER=<Anonymisierer_version.txt
+    echo Version: %VER%
+    echo.
+)
+echo Blacklist und Einstellungen wurden nicht veraendert.
+echo Zum Starten: %EXE% doppelklicken.
 echo.
 pause
