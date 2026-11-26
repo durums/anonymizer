@@ -1,0 +1,46 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Build exe
+        run: |
+          pyinstaller `
+            --noconfirm `
+            --onefile `
+            --noconsole `
+            --name Anonymisierer `
+            --add-data "blacklist.txt;." `
+            --hidden-import openpyxl `
+            --hidden-import email `
+            --hidden-import email.mime `
+            --hidden-import email.mime.text `
+            --hidden-import email.mime.multipart `
+            --hidden-import email.header `
+            --hidden-import email.utils `
+            --hidden-import csv `
+            --hidden-import html `
+            --hidden-import unicodedata `
+            --hidden-import codecs `
+            --hidden-import mailbox `
+            app.py
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Anonymisierer.exe
